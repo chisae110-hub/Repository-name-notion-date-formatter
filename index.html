@@ -154,6 +154,12 @@
         <h1>📅 日付・時刻フォーマッター</h1>
         
         <div class="input-group">
+            <label for="yearInput">年を入力（例：2025）</label>
+            <input type="text" id="yearInput" placeholder="2025" maxlength="4" value="2025">
+            <div class="hint">形式：4桁の年（例：2025、2026）</div>
+        </div>
+        
+        <div class="input-group">
             <label for="dateInput">日付を入力（例：10/22）</label>
             <input type="text" id="dateInput" placeholder="10/22" maxlength="5">
             <div class="hint">形式：月/日（例：10/22、1/5）</div>
@@ -174,6 +180,7 @@
     </div>
 
     <script>
+        const yearInput = document.getElementById('yearInput');
         const dateInput = document.getElementById('dateInput');
         const timeInput = document.getElementById('timeInput');
         const result = document.getElementById('result');
@@ -183,11 +190,21 @@
         const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
         
         function formatDateTime() {
+            const yearValue = yearInput.value.trim();
             const dateValue = dateInput.value.trim();
             const timeValue = timeInput.value.trim();
             
-            if (!dateValue || !timeValue) {
+            if (!yearValue || !dateValue || !timeValue) {
                 result.textContent = '入力すると結果が表示されます';
+                result.className = 'result-text empty';
+                copyButton.disabled = true;
+                return;
+            }
+            
+            // 年のバリデーション
+            const year = parseInt(yearValue);
+            if (isNaN(year) || year < 1900 || year > 2100) {
+                result.textContent = '年は1900〜2100の範囲で入力してください';
                 result.className = 'result-text empty';
                 copyButton.disabled = true;
                 return;
@@ -231,12 +248,12 @@
                 return;
             }
             
-            // 曜日の計算（2025年として計算）
-            const date = new Date(2025, month - 1, day);
+            // 曜日の計算
+            const date = new Date(year, month - 1, day);
             const weekday = weekdays[date.getDay()];
             
             // フォーマットされた文字列を生成
-            const formatted = `2025年${month}月${day}日（${weekday}）${hour}:${minute}`;
+            const formatted = `${year}年${month}月${day}日（${weekday}）${hour}:${minute}`;
             
             result.textContent = formatted;
             result.className = 'result-text';
@@ -244,23 +261,81 @@
         }
         
         // リアルタイムで更新
+        yearInput.addEventListener('input', formatDateTime);
         dateInput.addEventListener('input', formatDateTime);
         timeInput.addEventListener('input', formatDateTime);
         
-        // コピー機能
+        // コピー機能（複数の方法を試す）
         copyButton.addEventListener('click', async () => {
+            const textToCopy = result.textContent;
+            
+            // 方法1: Clipboard API（モダンブラウザ用）
+            if (navigator.clipboard && window.isSecureContext) {
+                try {
+                    await navigator.clipboard.writeText(textToCopy);
+                    showCopiedMessage();
+                    return;
+                } catch (err) {
+                    console.log('Clipboard API failed, trying fallback...');
+                }
+            }
+            
+            // 方法2: execCommand（フォールバック）
             try {
-                await navigator.clipboard.writeText(result.textContent);
-                copiedMessage.classList.add('show');
-                setTimeout(() => {
-                    copiedMessage.classList.remove('show');
-                }, 2000);
+                const textArea = document.createElement('textarea');
+                textArea.value = textToCopy;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                if (successful) {
+                    showCopiedMessage();
+                } else {
+                    // 方法3: 手動選択を促す
+                    selectResultText();
+                }
             } catch (err) {
-                alert('コピーに失敗しました');
+                // 方法3: 手動選択を促す
+                selectResultText();
             }
         });
         
+        function showCopiedMessage() {
+            copiedMessage.textContent = 'コピーしました！';
+            copiedMessage.classList.add('show');
+            setTimeout(() => {
+                copiedMessage.classList.remove('show');
+            }, 2000);
+        }
+        
+        function selectResultText() {
+            // テキストを選択状態にする
+            const range = document.createRange();
+            range.selectNodeContents(result);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
+            copiedMessage.textContent = 'テキストを選択しました。Ctrl+C（Mac: ⌘+C）でコピーしてください';
+            copiedMessage.classList.add('show');
+            setTimeout(() => {
+                copiedMessage.classList.remove('show');
+            }, 3000);
+        }
+        
         // Enterキーで次のフィールドへ移動
+        yearInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                dateInput.focus();
+            }
+        });
+        
         dateInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 timeInput.focus();
@@ -272,6 +347,9 @@
                 copyButton.click();
             }
         });
+        
+        // 初期表示時にフォーマット実行（年が既に入力されているため）
+        formatDateTime();
     </script>
 </body>
 </html>
